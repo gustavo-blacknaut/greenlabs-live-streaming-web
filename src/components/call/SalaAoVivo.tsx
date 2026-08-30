@@ -3,7 +3,12 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { Camera, Loader2, LogOut, MonitorUp, MonitorPlay, Users, X } from 'lucide-react';
-import { MODOS_AUDIO, pegarModoAudio, type ParticipanteFormatado } from '@/lib/webrtc';
+import {
+  MODOS_AUDIO,
+  QUALIDADES,
+  pegarModoAudio,
+  type ParticipanteFormatado,
+} from '@/lib/webrtc';
 import type { StreamNaTela } from '@/lib/useCall';
 import { cn } from '@/lib/utils';
 
@@ -33,8 +38,10 @@ type Props = {
   participantes: ParticipanteFormatado[];
   temTela: boolean;
   modoAudio: string;
+  qualidade: string;
   aviso: string;
   onModoAudioChange: (id: string) => void;
+  onQualidadeChange: (id: string) => void;
   onCompartilharTela: () => void;
   onLigarCamera: () => void;
   onEncerrarStream: (id: string) => void;
@@ -56,8 +63,10 @@ export default function SalaAoVivo({
   participantes,
   temTela,
   modoAudio,
+  qualidade,
   aviso,
   onModoAudioChange,
+  onQualidadeChange,
   onCompartilharTela,
   onLigarCamera,
   onEncerrarStream,
@@ -124,6 +133,40 @@ export default function SalaAoVivo({
           </div>
           <p className="mt-2.5 lg:mt-0 text-xs text-zinc-600 leading-relaxed font-medium lg:border-l lg:border-white/10 lg:pl-5">
             {pegarModoAudio(modoAudio).resumo}
+          </p>
+        </section>
+      )}
+
+      {/*
+        A qualidade tambem fica AQUI, e nao so na tela de entrar.
+        Escolher antes de entrar e escolher no escuro: e depois de ver a chamada
+        que se descobre que a imagem esta pesada demais para a internet de
+        alguem. Vale para a proxima transmissao - trocar a resolucao de uma que
+        ja esta no ar exigiria recomecar a captura.
+      */}
+      {temTela && (
+        <section className="mx-3 sm:mx-4 mt-3 px-4 py-3 rounded-2xl border border-white/10 bg-zinc-900/40 lg:flex lg:items-center lg:gap-5">
+          <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-2.5 lg:mb-0 lg:shrink-0">
+            Qualidade
+          </h2>
+          <div className="flex flex-wrap gap-2 lg:shrink-0">
+            {QUALIDADES.map((q) => (
+              <button
+                key={q.id}
+                onClick={() => onQualidadeChange(q.id)}
+                className={cn(
+                  'px-3.5 py-2 rounded-lg border text-xs font-bold transition-colors',
+                  qualidade === q.id
+                    ? 'border-green-500/40 bg-green-500/10 text-green-400'
+                    : 'border-white/10 bg-white/[0.03] text-zinc-500 hover:text-zinc-300'
+                )}
+              >
+                {q.label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2.5 lg:mt-0 text-xs text-zinc-600 leading-relaxed font-medium lg:border-l lg:border-white/10 lg:pl-5">
+            Vale para a próxima transmissão que você começar.
           </p>
         </section>
       )}

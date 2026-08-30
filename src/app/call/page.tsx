@@ -87,8 +87,10 @@ export default function CallPage() {
       participantes={call.participantes}
       temTela={temTela}
       modoAudio={modoAudio}
+      qualidade={qualidade}
       aviso={aviso}
       onModoAudioChange={setModoAudio}
+      onQualidadeChange={setQualidade}
       onCompartilharTela={compartilharTela}
       onLigarCamera={ligarCamera}
       onEncerrarStream={call.removerStreamLocal}
