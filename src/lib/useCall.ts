@@ -250,31 +250,6 @@ export function useCall() {
       }
 
       for (const [peerId, pc] of peersRef.current.entries()) {
-        // Com o servidor retransmitindo, a faixa entra numa m-line que ele já
-        // abriu, por replaceTrack — que não exige renegociação. Ofertar aqui
-        // colidia com a renegociação dele.
-        if (modoSfuRef.current) {
-          for (const track of stream.getTracks()) {
-            // A primeira m-line daquele tipo sem faixa de envio: é a vaga que o
-            // servidor abriu para publicarmos, e é nela que a resposta já disse
-            // que podemos enviar.
-            const vaga = pc
-              .getTransceivers()
-              .find((t) => !t.sender.track && t.receiver.track?.kind === track.kind);
-            if (!vaga) continue;
-            await vaga.sender.replaceTrack(track);
-            if (track.kind === 'video') void ajustarSender(vaga.sender, quality);
-          }
-          enviar({
-            type: 'stream-meta',
-            to: peerId,
-            id: item.id,
-            streamId: stream.id,
-            name: nome,
-            kind,
-          });
-          continue;
-        }
 
         for (const track of stream.getTracks()) {
           const sender = pc.addTrack(track, stream);
@@ -355,40 +330,6 @@ export function useCall() {
           if (!msg.from || !msg.sdp) return;
           const pc = peersRef.current.get(msg.from) ?? criarPeer(msg.from);
           await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
-
-          // Com o servidor retransmitindo, as m-lines que ele abre para nós
-          // PUBLICARMOS já saem da resposta marcadas como "podemos enviar",
-          // mesmo sem faixa nenhuma ainda.
-          //
-          // É o que permite começar a transmitir depois com replaceTrack, sem
-          // renegociar. Renegociar daqui enquanto o servidor renegocia de lá é
-          // colisão, e o resultado é o papel do DTLS virando no meio da
-          // conexão: "Failed to set SSL role for the transport", com a tela
-          // não aparecendo para ninguém.
-          //
-          // As m-lines das faixas dos OUTROS ficam de fora: elas são recvonly
-          // para nós, e dizer que enviamos nelas seria mentira.
-          //
-          // Quais são as nossas: as PRIMEIRAS de cada tipo. O servidor abre uma
-          // de vídeo e uma de áudio para a pessoa publicar assim que ela entra,
-          // e só depois vêm as das faixas dos outros. Escolher pela direção não
-          // funciona - o criarPeer já reserva as m-lines de recepção como
-          // `recvonly`, e era justamente esse caso que a primeira versão desta
-          // correção pulava, deixando o navegador sem publicar nada.
-          if (modoSfuRef.current) {
-            const jaMarcado = new Set<string>();
-            for (const transceptor of pc.getTransceivers()) {
-              const tipo = transceptor.receiver.track?.kind;
-              if (!tipo || jaMarcado.has(tipo)) continue;
-              jaMarcado.add(tipo);
-              try {
-                transceptor.direction = 'sendrecv';
-              } catch {
-                // Navegador que não deixa mexer na direção: sobra o caminho
-                // antigo, com renegociação.
-              }
-            }
-          }
 
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
