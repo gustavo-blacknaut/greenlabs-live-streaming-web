@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import Image from 'next/image';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, MessageCircle, Server } from 'lucide-react';
 import { HOSTMINE, HOSTMINE_DISCORD } from '@/lib/links';
 import { SERVIDORES_PUBLICOS } from '@/lib/servers';
@@ -15,7 +14,19 @@ export default function Patrocinio() {
   // ícone de imagem quebrada no meio da página inicial é pior do que o nome
   // escrito, então o texto assume quando o arquivo não carrega.
   const [semLogo, setSemLogo] = useState(false);
+  const logo = useRef<HTMLImageElement>(null);
   const publico = SERVIDORES_PUBLICOS[0];
+
+  // O onError sozinho não basta: a imagem vem no HTML do servidor e o
+  // navegador já tentou carregá-la antes do React hidratar. Quando o arquivo
+  // não existe, o evento de erro acontece nesse intervalo e ninguém está
+  // ouvindo — o handler é atado depois, para uma falha que já passou. Aqui a
+  // checagem é do estado final, que não depende de ter visto o evento:
+  // terminou de carregar e não tem largura nenhuma quer dizer que falhou.
+  useEffect(() => {
+    const img = logo.current;
+    if (img && img.complete && img.naturalWidth === 0) setSemLogo(true);
+  }, []);
 
   return (
     <section className="py-20 sm:py-28 lg:py-32 relative" aria-labelledby="patrocinio-titulo">
@@ -43,7 +54,14 @@ export default function Patrocinio() {
                     Hostmine
                   </span>
                 ) : (
-                  <Image
+                  // <img> puro, e nao next/image: o onError do next/image nao
+                  // dispara quando o arquivo nao existe - fica o icone de
+                  // imagem quebrada, que e justamente o que o texto acima
+                  // existe para evitar. Como images.unoptimized ja esta ligado
+                  // no next.config, o componente nao acrescentava nada aqui.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    ref={logo}
                     src="/images/hostmine.png"
                     alt="Hostmine"
                     width={260}
