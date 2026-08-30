@@ -26,3 +26,9 @@ export const RELEASE_WINDOWS_NATIVO = `${REPO_WINDOWS}/releases/latest`;
 export function arquivoDaUltimaVersao(repo: string, nome: string): string {
   return `${repo}/releases/latest/download/${nome}`;
 }
+
+// Hostmine: patrocinadora do projeto e quem hospeda o servidor publico da
+// pagina de entrar. O convite do Discord fica aqui junto do resto para nao
+// acabar copiado solto dentro de um componente.
+export const HOSTMINE = 'https://hostmine.com.br';
+export const HOSTMINE_DISCORD = 'https://discord.gg/UQJysz35GN';

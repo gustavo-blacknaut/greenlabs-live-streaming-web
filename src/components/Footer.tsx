@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { REPO, REPO_MOBILE, REPO_SERVER, REPO_WINDOWS } from '@/lib/links';
+import { HOSTMINE, REPO, REPO_MOBILE, REPO_SERVER, REPO_WINDOWS } from '@/lib/links';
 
 const COLUNAS = [
   {
@@ -73,6 +73,16 @@ export default function Footer() {
             </a>
           </p>
           <p className="text-xs text-zinc-600 font-medium">
+            Servidor público por{' '}
+            <a
+              href={HOSTMINE}
+              target="_blank"
+              rel="noreferrer sponsored"
+              className="text-zinc-500 hover:text-green-400 transition-colors"
+            >
+              Hostmine
+            </a>
+            <span className="mx-2 text-zinc-800">·</span>
             Vídeo e áudio nunca passam por um servidor nosso.
           </p>
         </div>
