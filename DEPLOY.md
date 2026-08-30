@@ -11,6 +11,90 @@ servidor de quem está hospedando a sala.
 
 ---
 
+## Receita pronta: labs.greencodes.com.br com pm2 na 4068
+
+Tudo na VPS, do zero. Se quiser entender o porquê de cada peça, o resto do
+documento explica.
+
+```bash
+sudo apt update && sudo apt install -y git nginx
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt install -y nodejs
+sudo npm install -g pm2 serve
+```
+
+```bash
+sudo mkdir -p /var/www && sudo chown $USER:$USER /var/www
+cd /var/www
+git clone https://github.com/gustavo-blacknaut/greenlabs-site.git
+cd greenlabs-site
+npm ci
+npm run build
+```
+
+O build gera `out/` — cerca de 1,7 MB de HTML, CSS e JS.
+
+```bash
+pm2 start "serve out -l 4068 --no-clipboard" --name greenlabs-site
+pm2 save
+pm2 startup    # rode a linha que ele imprimir, para subir sozinho no boot
+```
+
+> **Por que `serve` e não `next start`.** Este site é export estático
+> (`output: 'export'` no next.config). O `next start` recusa rodar nesse
+> modo — ele existe para quem tem servidor Next de verdade. O `serve`
+> entrega a pasta pronta e, o que importa aqui, resolve `/call` para
+> `call.html` sozinho: sem isso o link de convite dá 404.
+
+Confira antes de mexer no nginx:
+
+```bash
+curl -o /dev/null -w "%{http_code}\n" http://127.0.0.1:4068/call
+```
+
+Tem que responder `200`.
+
+nginx em `/etc/nginx/sites-available/labs.greencodes.com.br`:
+
+```nginx
+server {
+    listen 80;
+    listen [::]:80;
+    server_name labs.greencodes.com.br;
+
+    location / {
+        proxy_pass http://127.0.0.1:4068;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+```bash
+sudo ln -s /etc/nginx/sites-available/labs.greencodes.com.br /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d labs.greencodes.com.br
+```
+
+O certbot reescreve o bloco acima para 443 e cria o redirecionamento do 80
+sozinho.
+
+Atualizar depois:
+
+```bash
+cd /var/www/greenlabs-site && git pull && npm ci && npm run build
+pm2 restart greenlabs-site
+```
+
+> **Leia a seção 4 antes de divulgar o endereço.** Com o site em HTTPS, o
+> navegador bloqueia todo servidor de sinalização em `ws://` — e o erro que
+> aparece não diz isso.
+
+---
+
 ## 1. Gerar os arquivos
 
 Na sua máquina, dentro do repositório:
