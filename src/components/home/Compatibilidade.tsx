@@ -13,7 +13,7 @@ const LINHAS: Linha[] = [
   {
     plataforma: 'Windows · nativo',
     assistir: true,
-    camera: false,
+    camera: true,
     tela: 'até 1080p60',
     nota: 'o mais leve',
     destaque: true,
@@ -27,7 +27,7 @@ const LINHAS: Linha[] = [
   },
   { plataforma: 'Linux · Electron', assistir: true, camera: true, tela: 'até 1080p60' },
   { plataforma: 'App Android', assistir: true, camera: true, tela: 'até 720p30' },
-  { plataforma: 'Navegador (PC)', assistir: true, camera: true, tela: 'até 1080p60' },
+  { plataforma: 'Navegador (PC)', assistir: true, camera: true, tela: 'até 1080p30' },
   { plataforma: 'Navegador (celular)', assistir: true, camera: true, tela: false },
 ];
 

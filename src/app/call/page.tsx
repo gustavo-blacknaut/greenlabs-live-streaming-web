@@ -14,6 +14,9 @@ import { lembrarServidor, salvarPreferencias } from '@/lib/storage';
 export default function CallPage() {
   const call = useCall();
   const [nome, setNome] = useState('');
+  // Guardados na entrada porque o link de convite precisa dos dois.
+  const [servidor, setServidor] = useState('');
+  const [sala, setSala] = useState('call1');
   const [qualidade, setQualidade] = useState('720p30');
   const [modoAudio, setModoAudio] = useState('aba');
   const [temTela, setTemTela] = useState(false);
@@ -25,6 +28,8 @@ export default function CallPage() {
 
   const entrar = async (dados: { nome: string; servidor: string; sala: string }) => {
     setNome(dados.nome);
+    setServidor(dados.servidor);
+    setSala(dados.sala);
     salvarPreferencias(dados);
     try {
       await call.conectar(dados);
@@ -81,6 +86,8 @@ export default function CallPage() {
   return (
     <SalaAoVivo
       nome={nome}
+      servidor={servidor}
+      sala={sala}
       pingMs={call.pingMs}
       reconectando={call.reconectando}
       streams={call.streams}

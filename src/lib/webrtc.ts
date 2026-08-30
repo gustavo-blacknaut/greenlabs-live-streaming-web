@@ -30,8 +30,13 @@ export const QUALIDADES: Qualidade[] = [
   { id: '480p30', label: '480p 30fps — leve', width: 854, height: 480, fps: 30, bitrate: 900_000 },
   { id: '720p30', label: '720p 30fps', width: 1280, height: 720, fps: 30, bitrate: 2_200_000 },
   { id: '1080p30', label: '1080p 30fps', width: 1920, height: 1080, fps: 30, bitrate: 4_500_000 },
-  { id: '1080p60', label: '1080p 60fps', width: 1920, height: 1080, fps: 60, bitrate: 7_500_000 },
 ];
+// Nada de 60 quadros por segundo pelo navegador.
+//
+// A captura de tela do navegador nao entrega isso de forma confiavel, e o que
+// sai e uma transmissao que promete 60 e entrega menos, gastando o dobro da
+// banda para chegar la. 1080p a 30 e o teto honesto aqui; quem quer mais tem o
+// aplicativo nativo, que captura pela placa de video.
 
 export const gerarId = (): string =>
   globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;

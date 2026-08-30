@@ -44,9 +44,21 @@ export default function EntrarSala({
   useEffect(() => {
     const prefs = carregarPreferencias();
     setNome(prefs.nome);
-    setServidor(prefs.servidor);
-    setSala(prefs.sala || 'call1');
     setRecentes(carregarServidoresRecentes());
+
+    // O link de convite traz o servidor e a sala na própria URL, e eles ganham
+    // das preferências: quem abriu um convite quer entrar NAQUELA sala, não na
+    // última em que esteve.
+    //
+    // Lido do window, e não pelo useSearchParams: o site é exportado estático,
+    // e lá aquele hook exige um limite de Suspense em volta da página inteira
+    // só para ler dois campos.
+    const url = new URLSearchParams(window.location.search);
+    const servidorDoConvite = url.get('servidor');
+    const salaDoConvite = url.get('sala');
+
+    setServidor(servidorDoConvite || prefs.servidor);
+    setSala(salaDoConvite || prefs.sala || 'call1');
   }, []);
 
   const normalizado = normalizarServidor(servidor);
