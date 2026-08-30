@@ -97,6 +97,35 @@ export function checarMixedContent(enderecoNormalizado: string): string | null {
   );
 }
 
+/**
+ * Por que a conexão não abriu, com a hipótese mais provável na frente.
+ *
+ * "Verifique o endereço do servidor" era a resposta para tudo, e no caso mais
+ * comum ela mandava a pessoa para o lugar errado: o endereço estava certo, o
+ * que faltava era TLS no servidor.
+ *
+ * O navegador não conta o motivo de um WebSocket falhar - de propósito, porque
+ * a diferença entre "recusou" e "não existe" já seria varredura de porta. O que
+ * dá para fazer é olhar o que sabemos: numa página HTTPS o endereço vira
+ * `wss://` obrigatoriamente, e a esmagadora maioria dos servidores de
+ * sinalização sobe em `ws://` puro. Falhou sem nem abrir, nessa combinação, é
+ * quase sempre isso.
+ */
+export function motivoDaFalha(urlTentada: string): string {
+  const paginaSegura = typeof window !== 'undefined' && window.location.protocol === 'https:';
+
+  if (paginaSegura && urlTentada.startsWith('wss://')) {
+    return (
+      'Não foi possível conectar. Como este site está em HTTPS, o navegador só ' +
+      'aceita servidor com TLS (wss://) — e a maioria sobe sem. Se o servidor é ' +
+      'seu, coloque-o atrás de um proxy com certificado; se não, peça o endereço ' +
+      'wss:// a quem hospeda. O aplicativo de desktop não tem essa restrição.'
+    );
+  }
+
+  return 'Não foi possível conectar. Verifique o endereço do servidor e se ele está no ar.';
+}
+
 export async function ajustarSender(
   sender: RTCRtpSender | null,
   qualidade: Qualidade

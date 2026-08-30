@@ -7,6 +7,7 @@ import {
   formatarParticipantes,
   gerarId,
   candidatosDeServidor,
+  motivoDaFalha,
   type ParticipanteFormatado,
   type Qualidade,
 } from './webrtc';
@@ -439,7 +440,7 @@ export function useCall() {
             try { ws.close(); } catch {}
             setConectando(false);
             reject(
-              new Error('O servidor não respondeu. Confira o endereço e se ele está no ar.')
+              new Error(motivoDaFalha(url))
             );
           }
         }, 10000);
@@ -483,7 +484,7 @@ export function useCall() {
           if (desligandoRef.current || ws.readyState === WebSocket.OPEN) return;
           if (tentarAlternativo()) return;
           setConectando(false);
-          reject(new Error('Não foi possível conectar. Verifique o endereço do servidor.'));
+          reject(new Error(motivoDaFalha(url)));
         };
 
         ws.onclose = () => {

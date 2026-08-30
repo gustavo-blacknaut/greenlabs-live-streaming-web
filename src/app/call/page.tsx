@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import EntrarSala from '@/components/call/EntrarSala';
 import SalaAoVivo from '@/components/call/SalaAoVivo';
 import { useCall } from '@/lib/useCall';
@@ -11,6 +11,16 @@ import {
 } from '@/lib/webrtc';
 import { lembrarServidor, salvarPreferencias } from '@/lib/storage';
 
+// `getDisplayMedia` só existe no navegador, então o HTML estático sai com
+// `false` e o valor certo aparece na hidratação. Isso era um useEffect que
+// chamava setState — funcionava, mas é uma renderização em cascata à toa, e
+// useSyncExternalStore existe exatamente para "valor de fora do React com uma
+// resposta diferente no servidor". O `subscribe` não faz nada de propósito: o
+// que o navegador suporta não muda durante a visita.
+const semInscricao = () => () => {};
+const noCliente = () => podeCompartilharTela();
+const noServidor = () => false;
+
 export default function CallPage() {
   const call = useCall();
   const [nome, setNome] = useState('');
@@ -19,12 +29,8 @@ export default function CallPage() {
   const [sala, setSala] = useState('call1');
   const [qualidade, setQualidade] = useState('720p30');
   const [modoAudio, setModoAudio] = useState('aba');
-  const [temTela, setTemTela] = useState(false);
   const [aviso, setAviso] = useState('');
-
-  // getDisplayMedia só pode ser consultado no cliente; no HTML estático o valor
-  // inicial é false e ajusta na hidratação.
-  useEffect(() => setTemTela(podeCompartilharTela()), []);
+  const temTela = useSyncExternalStore(semInscricao, noCliente, noServidor);
 
   const entrar = async (dados: { nome: string; servidor: string; sala: string }) => {
     setNome(dados.nome);

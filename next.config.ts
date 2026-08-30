@@ -6,11 +6,10 @@ const nextConfig: NextConfig = {
   // quem hospeda, então não há backend para manter no ar.
   output: 'export',
 
-  // Dev e build em pastas separadas. Compartilhando a mesma, um
-  // `next build` rodado com o `next dev` no ar sobrescreve os arquivos que o
-  // dev estava servindo, e o site perde o CSS inteiro - 404 nas folhas de
-  // estilo, pagina sem estilo nenhum. Ja aconteceu duas vezes.
-  distDir: process.env.NODE_ENV === 'development' ? '.next-dev' : '.next',
+  // O distDir manual que separava dev de build saiu: desde o Next 16 o dev
+  // grava em .next/dev por conta propria, que e exatamente o que aquilo
+  // resolvia - um `next build` com o `next dev` no ar sobrescrevia os arquivos
+  // que o dev servia e a pagina perdia o CSS inteiro.
   images: { unoptimized: true },
 };
 

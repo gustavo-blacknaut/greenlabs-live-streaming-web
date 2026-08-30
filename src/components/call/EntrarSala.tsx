@@ -41,6 +41,13 @@ export default function EntrarSala({
   const [sala, setSala] = useState('call1');
   const [recentes, setRecentes] = useState<string[]>([]);
 
+  // O lint do React reclama de setState dentro de efeito, e com razão na maior
+  // parte dos casos. Aqui não há alternativa: os valores vêm do localStorage e
+  // da URL, que não existem quando o HTML estático é gerado. Calcular na
+  // inicialização do useState renderizaria vazio no servidor e preenchido no
+  // cliente — erro de hidratação. Este é o caminho que o próprio React indica
+  // para semear estado a partir do navegador, e roda uma vez só.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const prefs = carregarPreferencias();
     setNome(prefs.nome);
@@ -60,6 +67,7 @@ export default function EntrarSala({
     setServidor(servidorDoConvite || prefs.servidor);
     setSala(salaDoConvite || prefs.sala || 'call1');
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const normalizado = normalizarServidor(servidor);
   const avisoMisto = normalizado ? checarMixedContent(normalizado) : null;
