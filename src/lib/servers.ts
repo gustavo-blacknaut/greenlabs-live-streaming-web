@@ -12,9 +12,12 @@ export type ServidorPublico = {
 
 export const SERVIDORES_PUBLICOS: ServidorPublico[] = [
   {
-    id: 'br-05',
-    nome: 'Brasil',
-    endereco: 'br-05.hostmine.com.br:25589',
+    id: 'greencodes',
+    nome: 'Grátis',
+    // Sem porta e sem esquema de proposito: este endereco termina TLS no nginx,
+    // na 443. Escrever a porta do processo aqui (25640) e o erro mais facil de
+    // cometer, e o sintoma nao ajuda - a conexao so estoura o tempo limite.
+    endereco: 'sinal.greencodes.com.br',
     regiao: 'BR',
   },
 ];

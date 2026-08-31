@@ -79,6 +79,10 @@ const acao =
   // Em telas maiores vira uma linha compacta, com largura pelo conteúdo.
   'sm:flex-none sm:flex-row sm:gap-2 sm:px-5 sm:min-h-[46px]';
 
+const iconeDoTopo =
+  'grid place-items-center w-9 h-9 rounded-xl border border-white/10 bg-white/[0.03] ' +
+  'text-zinc-400 transition-colors hover:text-white hover:bg-white/[0.08] shrink-0';
+
 const pastilha =
   'px-3.5 py-2 rounded-lg border text-xs font-bold transition-colors text-left';
 
@@ -118,10 +122,18 @@ export default function SalaAoVivo({
   // transmitir" e o aviso aparece na hidratação, se for o caso.
   const soAssiste = useSyncExternalStore(semInscricao, inseguroNoCliente, inseguroNoServidor);
 
+  // Só quem tem imagem ocupa o palco. O servidor retransmissor entrega uma
+  // faixa de áudio mesmo sem ninguém falando, e ela virava um quadro
+  // "Participante — áudio" tomando uma vaga - inclusive depois de parar a tela,
+  // o que fazia parecer que não tinha parado. O áudio continua tocando, num
+  // player fora da tela.
+  const comImagem = streams.filter((s) => s.temVideo);
+  const soSom = streams.filter((s) => !s.temVideo && !s.local);
+
   // O palco mostra tantas quantas couberem na divisão escolhida. As vagas que
   // sobram ficam desenhadas e vazias: sem elas, a única transmissão pularia de
   // tamanho a cada pessoa que entra.
-  const visiveis = streams.slice(0, divisoes);
+  const visiveis = comImagem.slice(0, divisoes);
   const vagas = Math.max(0, divisoes - visiveis.length);
 
   /**
@@ -182,7 +194,10 @@ export default function SalaAoVivo({
           onClick={copiarConvite}
           title="Copiar link do convite"
           className={cn(
-            'ml-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-black transition-colors min-w-0',
+            // No celular ocupa o espaço que sobra: espremido entre as divisões
+            // e o ping, o nome da sala virava um traço - e ele é justamente o
+            // que a pessoa precisa ler para passar o convite adiante.
+            'ml-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-black transition-colors min-w-0 flex-1 sm:flex-none',
             copiado
               ? 'border-green-500/40 bg-green-500/10 text-green-400'
               : 'border-white/10 bg-white/[0.03] text-zinc-300 hover:text-white hover:bg-white/[0.08]'
@@ -194,11 +209,11 @@ export default function SalaAoVivo({
           </span>
         </button>
 
-        <div className="flex-1" />
-
-        {/* Divisão do palco: três botões grudados num trilho só. */}
+        {/* Divisão do palco: três botões grudados num trilho só. Escondida no
+            celular, onde a grade é de uma coluna e o espaço faz falta ao nome
+            da sala. */}
         <div
-          className="flex gap-0.5 p-0.5 rounded-xl border border-white/10 bg-white/[0.03]"
+          className="hidden sm:flex gap-0.5 p-0.5 rounded-xl border border-white/10 bg-white/[0.03]"
           role="group"
           aria-label="Divisão da tela"
         >
@@ -227,16 +242,80 @@ export default function SalaAoVivo({
             <span className="hidden sm:inline">Reconectando…</span>
           </span>
         ) : (
-          <span className="px-3 py-1.5 rounded-full border border-white/10 bg-white/[0.03] text-green-400 text-xs font-black shrink-0">
+          <span className="hidden sm:block px-3 py-1.5 rounded-full border border-white/10 bg-white/[0.03] text-green-400 text-xs font-black shrink-0">
             {pingMs > 0 ? `${pingMs}ms` : '—'}
           </span>
         )}
 
+        {/* No monitor as ações moram aqui em cima, junto da configuração. A
+            barra de baixo existia para o polegar no celular; num monitor ela
+            era uma segunda barra ocupando altura para repetir o que cabe
+            nesta. Abaixo de sm ela reaparece e este bloco some. */}
+        <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+          <button
+            onClick={onCompartilharTela}
+            disabled={!temTela}
+            title={
+              temTela
+                ? 'Transmitir tela'
+                : soAssiste
+                  ? 'Precisa de HTTPS para transmitir a tela'
+                  : 'Não disponível neste navegador'
+            }
+            aria-label="Transmitir tela"
+            className={cn(iconeDoTopo, 'disabled:opacity-30 disabled:hover:bg-white/[0.03]')}
+          >
+            <MonitorUp size={16} aria-hidden="true" />
+          </button>
+
+          <button
+            onClick={onLigarCamera}
+            disabled={soAssiste}
+            title={soAssiste ? 'Precisa de HTTPS para acessar a câmera' : 'Ligar câmera'}
+            aria-label="Ligar câmera"
+            className={cn(iconeDoTopo, 'disabled:opacity-30 disabled:hover:bg-white/[0.03]')}
+          >
+            <Camera size={16} aria-hidden="true" />
+          </button>
+
+          <button
+            onClick={() => setPainelAberto(true)}
+            title="Pessoas na sala"
+            aria-label="Pessoas"
+            className={cn(iconeDoTopo, 'relative')}
+          >
+            <Users size={16} aria-hidden="true" />
+            <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 grid place-items-center rounded-full bg-green-500 text-black text-[10px] font-black">
+              {total}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setConfigAberta(true)}
+            title="Configuração"
+            aria-label="Configuração"
+            className={iconeDoTopo}
+          >
+            <Settings size={16} aria-hidden="true" />
+          </button>
+
+          <button
+            onClick={onSair}
+            title="Sair da sala"
+            aria-label="Sair"
+            className="grid place-items-center w-9 h-9 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 transition-colors hover:bg-red-500/20 hover:text-red-300 shrink-0"
+          >
+            <LogOut size={16} aria-hidden="true" />
+          </button>
+        </div>
+
+        {/* No celular só a engrenagem fica em cima; o resto está ao alcance do
+            polegar, na barra de baixo. */}
         <button
           onClick={() => setConfigAberta(true)}
           title="Configuração"
           aria-label="Configuração"
-          className="grid place-items-center w-9 h-9 rounded-xl border border-white/10 bg-white/[0.03] text-zinc-400 transition-colors hover:text-white hover:bg-white/[0.08] shrink-0"
+          className={cn(iconeDoTopo, 'sm:hidden')}
         >
           <Settings size={16} aria-hidden="true" />
         </button>
@@ -322,17 +401,24 @@ export default function SalaAoVivo({
           </div>
         )}
 
-        {streams.length > divisoes && (
+        {comImagem.length > divisoes && (
           <p className="mt-3 text-center text-xs text-zinc-600 font-medium">
-            {streams.length - divisoes} transmissão(ões) fora do palco — aumente a divisão para ver.
+            {comImagem.length - divisoes} transmissão(ões) fora do palco — aumente a divisão para ver.
           </p>
         )}
       </main>
 
+      {/* Áudio sem imagem: continua tocando, mas não ocupa o palco. */}
+      {soSom.map((s) => (
+        <div key={s.id} className="hidden" aria-hidden="true">
+          <Video stream={s.stream} mudo={false} />
+        </div>
+      ))}
+
       {/* No celular a barra ocupa a largura toda, ao alcance do polegar. Num
           monitor isso vira quatro botões gigantes, então ali ela encolhe e
           centraliza. */}
-      <nav className="flex gap-2 mx-3 sm:mx-4 mb-3 p-2 rounded-2xl border border-white/10 bg-zinc-900/60 backdrop-blur-xl sm:w-fit sm:mx-auto sm:gap-1">
+      <nav className="flex sm:hidden gap-2 mx-3 mb-3 p-2 rounded-2xl border border-white/10 bg-zinc-900/60 backdrop-blur-xl">
         <button
           onClick={onCompartilharTela}
           disabled={!temTela}

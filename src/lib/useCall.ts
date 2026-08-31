@@ -20,6 +20,16 @@ export type StreamNaTela = {
   peerId?: string;
   quality?: Qualidade;
   kind?: 'screen' | 'camera';
+  /**
+   * Se tem imagem para mostrar.
+   *
+   * Com o servidor retransmitindo, chega uma faixa de áudio mesmo quando
+   * ninguém está com microfone aberto - o m-line de áudio existe desde a
+   * primeira oferta. Sem esta marca isso virava um quadro "Participante —
+   * áudio" ocupando uma vaga do palco, e quem parava de transmitir a tela via
+   * o quadro fantasma continuar ali e concluía que não tinha parado.
+   */
+  temVideo: boolean;
 };
 
 type MensagemSinalizacao = {
@@ -82,6 +92,29 @@ export function useCall() {
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload));
   }, []);
+
+  /**
+   * Avisa todo mundo na sala, sem depender das conexões ponto a ponto.
+   *
+   * `stream-meta` e `stream-ended` são recado entre pessoas, não negociação de
+   * mídia. Eram mandados percorrendo as conexões abertas, o que funciona na
+   * malha - lá existe uma conexão por participante. Com o servidor
+   * retransmitindo existe UMA conexão, a do próprio servidor, e mensagem
+   * endereçada a ele é tratada como negociação e não chega a ninguém: o nome de
+   * quem transmite aparecia como "Participante" para todos, e o aviso de fim
+   * nunca saía.
+   *
+   * A lista de quem está na sala já está aqui, então o recado vai para cada um
+   * pelo id.
+   */
+  const avisarTodos = useCallback(
+    (base: Record<string, unknown>) => {
+      for (const peerId of nomesRef.current.keys()) {
+        enviar({ ...base, to: peerId });
+      }
+    },
+    [enviar]
+  );
 
   const sincronizarParticipantes = useCallback(() => {
     const lista = [...nomesRef.current.entries()].map(([peerId, dados]) => ({
@@ -151,12 +184,12 @@ export function useCall() {
             const nome = meta?.name ?? `${dono} — ${temVideo ? 'tela' : 'áudio'}`;
             const existente = atual.find((s) => s.id === id);
             if (existente) {
-              // O card já existe: só o rótulo pode mudar, quando o vídeo chega
-              // depois do áudio e o que era "áudio" vira "tela".
-              if (existente.nome === nome) return atual;
-              return atual.map((s) => (s.id === id ? { ...s, nome } : s));
+              // O card já existe: o rótulo e a presença de vídeo podem mudar,
+              // porque o vídeo costuma chegar depois do áudio.
+              if (existente.nome === nome && existente.temVideo === temVideo) return atual;
+              return atual.map((s) => (s.id === id ? { ...s, nome, temVideo } : s));
             }
-            return [...atual, { id, stream, local: false, peerId, nome }];
+            return [...atual, { id, stream, local: false, peerId, nome, temVideo }];
           });
         };
 
@@ -222,8 +255,9 @@ export function useCall() {
         try { track.stop(); } catch {}
       }
 
+      avisarTodos({ type: 'stream-ended', id: item.id, streamId: item.stream.id });
+
       for (const [peerId, pc] of peersRef.current.entries()) {
-        enviar({ type: 'stream-ended', to: peerId, id: item.id, streamId: item.stream.id });
         for (const sender of pc.getSenders()) {
           if (sender.track && item.stream.getTracks().includes(sender.track)) {
             try { pc.removeTrack(sender); } catch {}
@@ -232,7 +266,7 @@ export function useCall() {
         await fazerOferta(peerId);
       }
     },
-    [enviar, fazerOferta]
+    [avisarTodos, fazerOferta]
   );
 
   const publicarStream = useCallback(
@@ -242,7 +276,15 @@ export function useCall() {
       stream: MediaStream,
       quality: Qualidade
     ): Promise<StreamNaTela> => {
-      const item: StreamNaTela = { id: gerarId(), kind, nome, stream, quality, local: true };
+      const item: StreamNaTela = {
+        id: gerarId(),
+        kind,
+        nome,
+        stream,
+        quality,
+        local: true,
+        temVideo: stream.getVideoTracks().length > 0,
+      };
       streamsLocaisRef.current = [...streamsLocaisRef.current, item];
       setStreams((atual) => [...atual, item]);
 
@@ -250,25 +292,24 @@ export function useCall() {
         track.addEventListener('ended', () => void removerStreamLocal(item.id));
       }
 
-      for (const [peerId, pc] of peersRef.current.entries()) {
+      avisarTodos({
+        type: 'stream-meta',
+        id: item.id,
+        streamId: stream.id,
+        name: nome,
+        kind,
+      });
 
+      for (const [peerId, pc] of peersRef.current.entries()) {
         for (const track of stream.getTracks()) {
           const sender = pc.addTrack(track, stream);
           if (track.kind === 'video') void ajustarSender(sender, quality);
         }
-        enviar({
-          type: 'stream-meta',
-          to: peerId,
-          id: item.id,
-          streamId: stream.id,
-          name: nome,
-          kind,
-        });
         await fazerOferta(peerId);
       }
       return item;
     },
-    [enviar, fazerOferta, removerStreamLocal]
+    [avisarTodos, fazerOferta, removerStreamLocal]
   );
 
   const tratarMensagem = useCallback(
@@ -420,8 +461,14 @@ export function useCall() {
         // pedir tudo de novo.
         dadosRef.current = { servidor, nome, sala };
         desligandoRef.current = false;
-        setErro('');
         setConectando(true);
+        // O erro NÃO é limpo aqui.
+        //
+        // Limpar ao começar a tentativa fazia a explicação sumir no instante em
+        // que a pessoa clicava de novo - e este texto é justamente o que diz
+        // que falta TLS no servidor, que é longo e ninguém termina de ler antes
+        // de tentar outra vez. Ele sai sozinho quando a conexão abre (onopen),
+        // ou é substituído pelo motivo da falha seguinte.
 
         let ws: WebSocket;
         try {
@@ -451,6 +498,7 @@ export function useCall() {
           setConectado(true);
           setConectando(false);
           setReconectando(false);
+          setErro('');
           tentativasRef.current = 0;
           enviar({ type: 'join', roomId: sala || 'call1', name: nome || 'Visitante' });
 

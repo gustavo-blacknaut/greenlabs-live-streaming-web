@@ -8,9 +8,9 @@
 
 Abre no navegador, sem conta e sem limite de tempo.
 
-[![Ver o site](https://img.shields.io/badge/Abrir-no%20navegador-16A34A?style=for-the-badge)](https://greenlabs.greencodes.com.br)
+[![Ver o site](https://img.shields.io/badge/Abrir-no%20navegador-16A34A?style=for-the-badge)](https://labs.greencodes.com.br)
 &nbsp;
-![Next.js 15](https://img.shields.io/badge/Next.js-15-000000?style=flat-square)
+![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?style=flat-square)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square)
 ![Tailwind v4](https://img.shields.io/badge/Tailwind-v4-38BDF8?style=flat-square)
 ![Estático](https://img.shields.io/badge/build-est%C3%A1tico-6B7280?style=flat-square)
