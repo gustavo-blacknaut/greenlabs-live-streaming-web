@@ -233,3 +233,22 @@ export function montarConstraintsDeTela(
     },
   } as DisplayMediaStreamOptions;
 }
+
+/**
+ * Numa pagina HTTP nao da para transmitir - so assistir.
+ *
+ * `navigator.mediaDevices` inteiro so existe em contexto seguro (HTTPS, ou
+ * localhost). Numa pagina HTTP servida por um dominio publico ele e
+ * `undefined`, entao nao ha captura de tela nem de camera. `RTCPeerConnection`
+ * continua funcionando, e por isso assistir funciona normalmente.
+ *
+ * Isto e o outro lado da moeda do `ws://`: uma pagina HTTPS bloqueia servidor
+ * sem TLS, e uma pagina HTTP nao deixa capturar. As duas exigencias se
+ * contradizem e nao existe endereco que atenda as duas - quem precisa das duas
+ * coisas ou poe TLS no servidor (o aplicativo abre um tunel que faz isso de
+ * graca) ou usa o proprio aplicativo, que nao tem essa restricao.
+ */
+export function soDaParaAssistir(): boolean {
+  if (typeof window === 'undefined') return false;
+  return !window.isSecureContext;
+}

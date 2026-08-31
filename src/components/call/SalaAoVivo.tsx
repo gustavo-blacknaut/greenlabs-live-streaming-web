@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Image from 'next/image';
 import {
   Camera,
@@ -21,6 +21,7 @@ import {
   MODOS_AUDIO,
   QUALIDADES,
   pegarModoAudio,
+  soDaParaAssistir,
   type ParticipanteFormatado,
 } from '@/lib/webrtc';
 import type { StreamNaTela } from '@/lib/useCall';
@@ -81,6 +82,12 @@ const acao =
 const pastilha =
   'px-3.5 py-2 rounded-lg border text-xs font-bold transition-colors text-left';
 
+// Contexto seguro só se sabe no navegador. O `subscribe` não faz nada de
+// propósito: o protocolo da página não muda enquanto ela está aberta.
+const semInscricao = () => () => {};
+const inseguroNoCliente = () => soDaParaAssistir();
+const inseguroNoServidor = () => false;
+
 export default function SalaAoVivo({
   nome,
   servidor,
@@ -106,6 +113,10 @@ export default function SalaAoVivo({
   const [divisoes, setDivisoes] = useState(1);
   const [copiado, setCopiado] = useState(false);
   const total = participantes.length + 1;
+
+  // Só existe resposta no navegador, então o HTML estático sai como "dá para
+  // transmitir" e o aviso aparece na hidratação, se for o caso.
+  const soAssiste = useSyncExternalStore(semInscricao, inseguroNoCliente, inseguroNoServidor);
 
   // O palco mostra tantas quantas couberem na divisão escolhida. As vagas que
   // sobram ficam desenhadas e vazias: sem elas, a única transmissão pularia de
@@ -231,6 +242,23 @@ export default function SalaAoVivo({
         </button>
       </header>
 
+      {/* Dito de saída, e não como erro depois do clique.
+          Numa página HTTP o navegador não expõe `navigator.mediaDevices`, então
+          transmitir é impossível aqui - e a mensagem que aparecia ao clicar
+          ("Não foi possível acessar a câmera ou o microfone") faz a pessoa
+          procurar defeito na webcam, que não tem nada a ver. */}
+      {soAssiste && (
+        <div className="mx-3 sm:mx-4 mt-3 px-4 py-3 rounded-xl border border-amber-500/30 bg-amber-500/10">
+          <p className="text-amber-300 text-sm leading-relaxed">
+            <strong className="font-bold">Neste endereço você só assiste.</strong>{' '}
+            O navegador só libera captura de tela e câmera em páginas HTTPS. Para
+            transmitir, abra a versão HTTPS deste site — ou use o aplicativo de
+            desktop, que não tem essa limitação e ainda abre um túnel com
+            certificado para o seu servidor.
+          </p>
+        </div>
+      )}
+
       {aviso && (
         <div className="mx-3 sm:mx-4 mt-3 flex items-start justify-between gap-3 px-4 py-3 rounded-xl border border-red-500/30 bg-red-500/10">
           <p className="text-red-300 text-sm leading-relaxed">{aviso}</p>
@@ -308,7 +336,7 @@ export default function SalaAoVivo({
         <button
           onClick={onCompartilharTela}
           disabled={!temTela}
-          title={temTela ? 'Transmitir tela' : 'Não disponível neste navegador'}
+          title={temTela ? 'Transmitir tela' : soAssiste ? 'Precisa de HTTPS para transmitir a tela' : 'Não disponível neste navegador'}
           className={cn(
             acao,
             'text-zinc-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent'
@@ -320,7 +348,12 @@ export default function SalaAoVivo({
 
         <button
           onClick={onLigarCamera}
-          className={cn(acao, 'text-zinc-400 hover:text-white hover:bg-white/5')}
+          disabled={soAssiste}
+          title={soAssiste ? 'Precisa de HTTPS para acessar a câmera' : 'Ligar câmera'}
+          className={cn(
+            acao,
+            'text-zinc-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent'
+          )}
         >
           <Camera size={19} aria-hidden="true" />
           Câmera
