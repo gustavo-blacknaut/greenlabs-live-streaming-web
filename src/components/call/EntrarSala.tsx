@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowLeft, Loader2, LogIn } from 'lucide-react';
 import { QUALIDADES, checarMixedContent, normalizarServidor } from '@/lib/webrtc';
-import { SERVIDORES_PUBLICOS } from '@/lib/servers';
+import { PONTE_PUBLICA, SERVIDORES_PUBLICOS, montarPelaPonte } from '@/lib/servers';
 import {
   carregarPreferencias,
   carregarServidoresRecentes,
@@ -71,6 +71,18 @@ export default function EntrarSala({
 
   const normalizado = normalizarServidor(servidor);
   const avisoMisto = normalizado ? checarMixedContent(normalizado) : null;
+
+  // A oferta só aparece quando a tentativa falhou numa página segura contra um
+  // endereço wss:// — que é a assinatura de "o servidor não tem TLS". Mostrar
+  // antes de falhar seria empurrar um intermediário para quem não precisa dele.
+  const pelaPonte = montarPelaPonte(servidor);
+  const ofereceRota =
+    !!erro &&
+    !conectando &&
+    !!pelaPonte &&
+    normalizado.startsWith('wss://') &&
+    typeof window !== 'undefined' &&
+    window.location.protocol === 'https:';
   const podeEntrar = nome.trim().length > 0 && servidor.trim().length > 0 && !conectando;
 
   return (
@@ -99,6 +111,44 @@ export default function EntrarSala({
           <p className="mb-5 px-4 py-3 rounded-xl border border-red-500/30 bg-red-500/10 text-red-300 text-sm leading-relaxed">
             {erro}
           </p>
+        )}
+
+        {/*
+          A saída, oferecida no momento em que a pessoa está travada.
+          Antes o erro explicava o problema e parava aí - e o problema é de uma
+          regra do navegador, então quem lia não tinha o que fazer com a
+          informação. Aqui vão as duas saídas reais, com o custo de cada uma
+          escrito: o túnel não tem intermediário, a ponte tem.
+        */}
+        {ofereceRota && (
+          <div className="mb-5 px-4 py-3.5 rounded-xl border border-amber-500/30 bg-amber-500/[0.07]">
+            <p className="text-amber-300 text-sm font-bold mb-2">
+              O servidor não tem certificado. Duas saídas:
+            </p>
+            <p className="text-zinc-400 text-xs leading-relaxed mb-3">
+              <strong className="text-zinc-200">Se o servidor é seu</strong>, suba
+              com <code className="px-1 py-0.5 rounded bg-white/10 text-zinc-200">--tunnel</code>:
+              ele entrega um endereço <code className="px-1 py-0.5 rounded bg-white/10 text-zinc-200">wss://</code>{' '}
+              pronto, sem intermediário e sem abrir porta no roteador.
+            </p>
+            <p className="text-zinc-400 text-xs leading-relaxed mb-3">
+              <strong className="text-zinc-200">Ou passe pela ponte</strong> —
+              ela recebe <code className="px-1 py-0.5 rounded bg-white/10 text-zinc-200">wss://</code>{' '}
+              e repassa para o seu servidor. Só a sinalização passa por lá; vídeo
+              e áudio continuam indo direto entre vocês.{' '}
+              <span className="text-amber-300/90">
+                Quem opera a ponte vê quem entrou em qual sala — não vê a imagem
+                nem o som.
+              </span>
+            </p>
+            <button
+              type="button"
+              onClick={() => setServidor(pelaPonte!)}
+              className="w-full px-4 py-2.5 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-200 text-xs font-black uppercase tracking-widest hover:bg-amber-500/20 transition-colors"
+            >
+              Usar a ponte de {PONTE_PUBLICA}
+            </button>
+          </div>
         )}
         {avisoMisto && (
           <p className="mb-5 px-4 py-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 text-sm leading-relaxed">
