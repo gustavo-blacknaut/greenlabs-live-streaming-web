@@ -45,6 +45,39 @@ function Video({ stream, mudo }: { stream: MediaStream; mudo: boolean }) {
   );
 }
 
+/**
+ * A resolução real que está chegando, lida da própria faixa.
+ *
+ * Não vem do `stream-meta`: aquilo é o que quem transmite PEDIU, e o navegador
+ * entrega o que consegue - quem escolhe 1080p e compartilha uma janela de
+ * 1280x720 transmite 1280x720. Mostrar o pedido em vez do recebido faria o
+ * rótulo mentir justamente para quem está conferindo a qualidade.
+ */
+function Resolucao({ stream }: { stream: MediaStream }) {
+  const [texto, setTexto] = useState('');
+
+  useEffect(() => {
+    const faixa = stream.getVideoTracks()[0];
+    if (!faixa) return;
+
+    const ler = () => {
+      const { width, height, frameRate } = faixa.getSettings();
+      if (!width || !height) return;
+      const fps = frameRate ? ` ${Math.round(frameRate)}fps` : '';
+      setTexto(`${width}×${height}${fps}`);
+    };
+
+    ler();
+    // A resolução muda quando quem transmite troca de janela, e no início ela
+    // costuma vir zerada enquanto o primeiro quadro não chegou.
+    const relogio = window.setInterval(ler, 2000);
+    return () => window.clearInterval(relogio);
+  }, [stream]);
+
+  if (!texto) return null;
+  return <span className="text-zinc-400 font-medium shrink-0">{texto}</span>;
+}
+
 type Props = {
   nome: string;
   servidor: string;
@@ -115,6 +148,7 @@ export default function SalaAoVivo({
   const [painelAberto, setPainelAberto] = useState(false);
   const [configAberta, setConfigAberta] = useState(false);
   const [divisoes, setDivisoes] = useState(1);
+  const [fixada, setFixada] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
   const total = participantes.length + 1;
 
@@ -130,11 +164,30 @@ export default function SalaAoVivo({
   const comImagem = streams.filter((s) => s.temVideo);
   const soSom = streams.filter((s) => !s.temVideo && !s.local);
 
-  // O palco mostra tantas quantas couberem na divisão escolhida. As vagas que
-  // sobram ficam desenhadas e vazias: sem elas, a única transmissão pularia de
-  // tamanho a cada pessoa que entra.
-  const visiveis = comImagem.slice(0, divisoes);
+  // A sua própria tela não disputa vaga com a dos outros.
+  //
+  // Ela entrava na mesma fila, então quem transmitia com divisão 1 via a si
+  // mesmo e não via mais ninguém - você já está olhando a sua tela, ela é a
+  // única imagem na sala que não te interessa. Só aparece quando não há mais
+  // nada, para o palco não ficar dizendo "ninguém transmitindo" enquanto você
+  // transmite.
+  const dosOutros = comImagem.filter((s) => !s.local);
+  const minhas = comImagem.filter((s) => s.local);
+  const candidatas = dosOutros.length > 0 ? dosOutros : minhas;
+
+  // Fixar põe a escolhida na frente. Sem isso a ordem era a de chegada e não
+  // havia como ver UMA tela específica: com divisão 1 você via a primeira que
+  // apareceu, e ponto.
+  const ordenadas = fixada
+    ? [
+        ...candidatas.filter((s) => s.id === fixada),
+        ...candidatas.filter((s) => s.id !== fixada),
+      ]
+    : candidatas;
+
+  const visiveis = ordenadas.slice(0, divisoes);
   const vagas = Math.max(0, divisoes - visiveis.length);
+  const escondidas = ordenadas.length - visiveis.length;
 
   /**
    * Copia o link que leva direto a esta sala.
@@ -365,17 +418,39 @@ export default function SalaAoVivo({
             {visiveis.map((item) => (
               <div
                 key={item.id}
-                className="group relative overflow-hidden rounded-[1.5rem] border border-white/10 bg-black aspect-video"
+                className={cn(
+                  'group relative overflow-hidden rounded-[1.5rem] border bg-black aspect-video',
+                  fixada === item.id ? 'border-green-500/60' : 'border-white/10'
+                )}
               >
                 <Video stream={item.stream} mudo={item.local} />
-                <span className="absolute left-3 bottom-3 max-w-[calc(100%-24px)] inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/75 backdrop-blur-sm text-green-400 text-xs font-bold">
+
+                {/* Clicar no quadro escolhe qual tela fica na frente. É o que
+                    faltava para conseguir ver UMA tela específica: antes a
+                    ordem era a de chegada e não havia como mudar. */}
+                <button
+                  onClick={() => setFixada(fixada === item.id ? null : item.id)}
+                  title={fixada === item.id ? 'Desafixar' : 'Ver esta tela na frente'}
+                  aria-label={fixada === item.id ? `Desafixar ${item.nome}` : `Ver ${item.nome} na frente`}
+                  aria-pressed={fixada === item.id}
+                  className="absolute inset-0 w-full h-full cursor-pointer"
+                />
+
+                <span className="absolute left-3 bottom-3 max-w-[calc(100%-24px)] inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/75 backdrop-blur-sm text-green-400 text-xs font-bold pointer-events-none">
                   {item.kind === 'camera' ? (
                     <Camera size={13} aria-hidden="true" />
                   ) : (
                     <MonitorPlay size={13} aria-hidden="true" />
                   )}
                   <span className="truncate">{item.nome}</span>
+                  <Resolucao stream={item.stream} />
                 </span>
+
+                {fixada === item.id && (
+                  <span className="absolute left-3 top-3 px-2.5 py-1 rounded-lg bg-green-500/90 text-black text-[10px] font-black uppercase tracking-wider pointer-events-none">
+                    fixada
+                  </span>
+                )}
                 {item.local && (
                   <button
                     onClick={() => onEncerrarStream(item.id)}
@@ -401,9 +476,9 @@ export default function SalaAoVivo({
           </div>
         )}
 
-        {comImagem.length > divisoes && (
+        {escondidas > 0 && (
           <p className="mt-3 text-center text-xs text-zinc-600 font-medium">
-            {comImagem.length - divisoes} transmissão(ões) fora do palco — aumente a divisão para ver.
+            {escondidas} fora do palco — aumente a divisão, ou clique numa tela para trazê-la à frente.
           </p>
         )}
       </main>
